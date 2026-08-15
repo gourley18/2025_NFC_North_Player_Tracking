@@ -7,12 +7,16 @@ requires-python = ">=3.14"
 dependencies = [
     "ipykernel>=7.3.0",
     "jupyter>=1.1.1",
+    "matplotlib>=3.11.1",
     "polars>=1.43.2",
 ]
-
-[project.scripts]
-2025-nfc-north-player-tracking = "2025_nfc_north_player_tracking:main"
 
 [build-system]
 requires = ["uv_build>=0.12.4,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.uv]
+link-mode = "copy"
+
+[tool.uv.build-backend]
+module-name = "nfc_north_player_tracking"

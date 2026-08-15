@@ -16,3 +16,6 @@ wheels/
 data/raw/
 data/processed/
 data/zipped/
+
+# plots
+outputs/
