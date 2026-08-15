@@ -1,4 +1,4 @@
-"""Create two Level 0 passing plots for each quarterback."""
+"""Create two Level 0 passing plots for every NFC North quarterback."""
 
 import os
 
@@ -6,6 +6,7 @@ from nfc_north_player_tracking.field_plot import make_area_plot, make_pass_plot
 from nfc_north_player_tracking.qb_diagnostics import build_qb_diagnostics
 from nfc_north_player_tracking.qb_queries import (
     classify_pass_attempts,
+    find_team_quarterbacks,
     get_player_game_ids,
     get_qb_pass_play_keys,
     load_pbp_for_plays,
@@ -18,40 +19,31 @@ OFFENSE_CSV = "data/raw/pff_offense.csv"
 PBP_CSV = "data/raw/pff_pbp.csv"
 OUTPUT_DIRECTORY = "outputs"
 
-QUARTERBACKS = {
-    10635: "Jared Goff",
-    40306: "Jordan Love",
-    144918: "JJ McCarthy",
-    144622: "Caleb Williams",
-}
+NFC_NORTH_TEAMS = ["CHI", "DET", "GB", "MIN"]
 
-def analyze_qb(player_id, player_name):
+
+def analyze_qb(player_id, player_name, team):
     """Query one quarterback, validate the data, and save two figures."""
     player_offense_rows = load_player_offense_rows(OFFENSE_CSV, player_id)
-
-    if player_offense_rows.is_empty():
-        raise ValueError(f"{player_name} ({player_id}) was not found in pff_offense.")
-
     game_ids = get_player_game_ids(player_offense_rows)
     pass_play_keys = get_qb_pass_play_keys(player_offense_rows)
 
     if pass_play_keys.is_empty():
-        raise ValueError(f"No passer rows were found for {player_name}.")
+        print(f"Skipping {player_name}: no passer plays found.")
+        return 0
 
     pbp_plays = load_pbp_for_plays(PBP_CSV, game_ids, pass_play_keys)
-
-    if pbp_plays.is_empty():
-        raise ValueError(f"No PBP rows matched {player_name}'s passer-play keys.")
-
     pass_attempts = classify_pass_attempts(pbp_plays)
 
     if pass_attempts.is_empty():
-        raise ValueError(f"No pass attempts were found for {player_name}.")
+        print(f"Skipping {player_name}: no pass attempts found.")
+        return 0
 
     located_passes, unlocated_passes = split_passes_by_location(pass_attempts)
 
     if located_passes.is_empty():
-        raise ValueError(f"No pass attempts had usable locations for {player_name}.")
+        print(f"Skipping {player_name}: no pass attempts have usable locations.")
+        return 0
 
     area_summary = summarize_by_area(located_passes)
 
@@ -76,11 +68,11 @@ def analyze_qb(player_id, player_name):
         print(diagnostics["summary"])
         raise ValueError(f"Diagnostic checks failed for {player_name}.")
 
-    file_name = player_name.lower().replace(" ", "_")
+    file_name = player_name.lower().replace(" ", "_").replace(".", "").replace("'", "")
 
     pass_figure = make_pass_plot(
         located_passes,
-        f"{player_name}: Pass Attempts",
+        f"{player_name} ({team}): Pass Attempts",
     )
     pass_figure.savefig(
         os.path.join(OUTPUT_DIRECTORY, f"{file_name}_pass_attempts.png"),
@@ -90,7 +82,7 @@ def analyze_qb(player_id, player_name):
 
     area_figure = make_area_plot(
         area_summary,
-        f"{player_name}: Completion % by Field Area",
+        f"{player_name} ({team}): Completion % by Field Area",
     )
     area_figure.savefig(
         os.path.join(OUTPUT_DIRECTORY, f"{file_name}_completion_by_area.png"),
@@ -98,7 +90,7 @@ def analyze_qb(player_id, player_name):
         bbox_inches="tight",
     )
 
-    print(f"\n{player_name} ({player_id})")
+    print(f"\n{player_name} ({player_id}) - {team}")
     print(f"Games found: {len(game_ids)}")
     print(f"Passer-play keys: {pass_play_keys.height}")
     print(f"Matched PBP rows: {pbp_plays.height}")
@@ -107,14 +99,27 @@ def analyze_qb(player_id, player_name):
     print(f"Unlocated attempts: {unlocated_passes.height}")
     print("Diagnostics: PASS")
 
+    return 2
+
 
 def main():
     os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
 
-    for player_id, player_name in QUARTERBACKS.items():
-        analyze_qb(player_id, player_name)
+    quarterbacks = find_team_quarterbacks(OFFENSE_CSV, NFC_NORTH_TEAMS)
 
-    print(f"\nCreated 8 figures in: {OUTPUT_DIRECTORY}")
+    print("Quarterbacks found:")
+    print(quarterbacks)
+
+    figure_count = 0
+
+    for qb in quarterbacks.iter_rows(named=True):
+        figure_count += analyze_qb(
+            qb["pff_PLAYERID"],
+            qb["pff_PLAYERNAME"],
+            qb["pff_TEAM"],
+        )
+
+    print(f"\nCreated {figure_count} figures in: {OUTPUT_DIRECTORY}")
 
 
 if __name__ == "__main__":
