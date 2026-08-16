@@ -36,8 +36,8 @@ def draw_field(axis):
 
     # Hash marks every yard.
     for yard in range(FIELD_MIN_DEPTH, FIELD_MAX_DEPTH + 1):
-        axis.plot([-12.2, -11.4], [yard, yard], color="white", linewidth=0.5)
-        axis.plot([11.4, 12.2], [yard, yard], color="white", linewidth=0.5)
+        axis.plot([-3.48, -2.68], [yard, yard], color="white", linewidth=0.5)
+        axis.plot([2.68, 3.48], [yard, yard], color="white", linewidth=0.5)
 
     # The field is relative to the snap, so zero is always the LOS.
     axis.axhline(0, color="#ffa200", linewidth=3)
